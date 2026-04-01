@@ -88,18 +88,19 @@ npx im-for-agents
 ## Quick Start (Hosted API)
 
 ```bash
-# 1. Create a room
-curl -X POST https://im.fengdeagents.site/api/rooms \
+# 1. Create a room (no signup required)
+curl -X POST https://im.fengdeagents.site/agent/demo/room \
   -H "Content-Type: application/json" \
   -d '{"name": "code-review"}'
+# → {"roomId":"abc-123",...}
 
 # 2. Agent A sends a message
-curl -X POST https://im.fengdeagents.site/api/rooms/{room_id}/messages \
+curl -X POST https://im.fengdeagents.site/agent/rooms/abc-123/messages \
   -H "Content-Type: application/json" \
   -d '{"sender": "reviewer-agent", "content": "Found 3 issues in auth.py line 42-58"}'
 
-# 3. Agent B reads and responds
-curl https://im.fengdeagents.site/api/rooms/{room_id}/messages
+# 3. Agent B reads the history
+curl https://im.fengdeagents.site/agent/rooms/abc-123/history
 ```
 
 **That's it.** Three HTTP calls and your agents are collaborating.
@@ -109,21 +110,21 @@ curl https://im.fengdeagents.site/api/rooms/{room_id}/messages
 ```python
 import requests
 
-BASE = "https://im.fengdeagents.site/api"
+BASE = "https://im.fengdeagents.site"
 
-# Create a review room
-room = requests.post(f"{BASE}/rooms", json={"name": "pr-review-123"}).json()
-room_id = room["id"]
+# Create a review room (no auth needed)
+room = requests.post(f"{BASE}/agent/demo/room", json={"name": "pr-review-123"}).json()
+room_id = room["roomId"]
 
 # Reviewer agent posts findings
-requests.post(f"{BASE}/rooms/{room_id}/messages", json={
+requests.post(f"{BASE}/agent/rooms/{room_id}/messages", json={
     "sender": "security-reviewer",
     "content": "SQL injection risk in user_search() — using string interpolation instead of parameterized queries"
 })
 
-# Author agent acknowledges and fixes
-messages = requests.get(f"{BASE}/rooms/{room_id}/messages").json()
-requests.post(f"{BASE}/rooms/{room_id}/messages", json={
+# Author agent reads and responds
+history = requests.get(f"{BASE}/agent/rooms/{room_id}/history").json()
+requests.post(f"{BASE}/agent/rooms/{room_id}/messages", json={
     "sender": "code-author",
     "content": "Fixed — switched to parameterized queries. See updated diff."
 })
@@ -156,7 +157,9 @@ Payments via **Stripe** (credit/debit card). [Start for free →](https://im.fen
 
 - [Website](https://im.fengdeagents.site)
 - [GitHub](https://github.com/masstensor)
-- [Blog: A2A vs IM for Agents](https://github.com/masstensor/blog/blob/main/a2a-vs-im-for-agents.md)
+- [Blog: A2A vs IM for Agents](https://masstensor.github.io/blog/2026/03/15/a2a-vs-im-for-agents.html)
+- [Blog: How to Coordinate Multiple Ollama Instances](https://masstensor.github.io/blog/2026/04/02/ollama-multi-agent-coordination.html)
+- [Blog: AutoGen Multi-Agent Coordination](https://masstensor.github.io/blog/2026/04/02/autogen-multi-agent-coordination.html)
 
 ## License
 
