@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoGen Cross-Machine Agent Communication — IM for Agents</title>
+<meta name="description" content="AutoGen agents only communicate within a single Python process. Here's how to get AutoGen agents on different machines talking to each other without Redis, Kafka, or a broker.">
+<meta name="keywords" content="AutoGen cross-machine communication, AutoGen agent messaging, AutoGen distributed agents, AutoGen external agent, AutoGen REST API, multi-machine AutoGen">
+<link rel="canonical" href="https://masstensor.github.io/im-for-agents/blog-autogen-cross-machine.html">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e0e0;background:#0d1117;line-height:1.8;font-size:17px}
+.container{max-width:780px;margin:0 auto;padding:0 24px}
+header{padding:40px 0 20px;border-bottom:1px solid #21262d}
+.back{color:#58a6ff;text-decoration:none;font-size:.9em}
+h1{font-size:2em;color:#c9d1d9;margin:24px 0 12px;line-height:1.3}
+.meta{color:#484f58;font-size:.9em;margin-bottom:40px}
+h2{font-size:1.4em;color:#58a6ff;margin:40px 0 16px}
+p{margin-bottom:16px;color:#c9d1d9}
+pre{background:#1c2128;padding:20px;border-radius:8px;overflow-x:auto;margin:16px 0;font-size:.88em}
+code{background:#1c2128;padding:2px 6px;border-radius:4px;color:#79c0ff;font-size:.9em}
+pre code{background:none;padding:0;color:#e6edf3}
+ul,ol{margin:8px 0 16px 24px;color:#c9d1d9}
+li{margin-bottom:6px}
+.note{background:#161b22;border-left:3px solid #58a6ff;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0}
+.cta-box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px;margin:48px 0;text-align:center}
+.cta-box p{margin-bottom:16px}
+.cta{display:inline-block;background:#238636;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600}
+footer{text-align:center;padding:40px 0;color:#484f58;border-top:1px solid #21262d;margin-top:60px;font-size:.9em}
+a{color:#58a6ff;text-decoration:none}
+.tag{display:inline-block;background:#161b22;border:1px solid #30363d;padding:3px 10px;border-radius:12px;font-size:.8em;color:#8b949e;margin:4px 2px}
+</style>
+</head>
+<body>
+<header><div class="container"><a href="/" class="back">← IM for Agents</a></div></header>
+<div class="container">
+
+<h1>AutoGen Cross-Machine Agent Communication Without a Broker</h1>
+<div class="meta">April 2, 2026 · 5 min read</div>
+
+<p>AutoGen is designed for multi-agent conversations within a single Python session. <code>ConversableAgent</code>, <code>AssistantAgent</code>, <code>GroupChat</code> — they all assume the agents live in the same process, on the same machine.</p>
+
+<p>When you need agents on <em>different machines</em> to coordinate — or when you want a non-AutoGen agent (a GPT script, a Claude Code session, a Rust service) to participate — the built-in mechanisms don't reach.</p>
+
+<p>Here's the simplest pattern to bridge that gap without setting up Redis, Kafka, or any broker.</p>
+
+<h2>The Pattern: AutoGen Agent With HTTP Messaging Tool</h2>
+
+<p>Give your AutoGen agent a function tool that reads from and writes to a shared REST room. Any other agent — on any machine, any framework — can read the same room.</p>
+
+<pre><code">import autogen
+import requests
+
+ROOM_ID = "your-room-id"  # from im.fengdeagents.site/api/rooms
+
+def send_to_room(message: str, sender_name: str = "autogen-agent") -> str:
+    """Send a message to the shared coordination room."""
+    resp = requests.post(
+        f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+        json={"sender": sender_name, "content": message}
+    )
+    return f"Sent. Room: {ROOM_ID}"
+
+def read_from_room(cursor: str = None) -> str:
+    """Read messages from the shared coordination room."""
+    url = f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages"
+    if cursor:
+        url += f"?cursor={cursor}"
+    resp = requests.get(url).json()
+    messages = resp.get("messages", [])
+    if not messages:
+        return "No new messages."
+    return "\n".join([f"{m['sender']}: {m['content']}" for m in messages])
+
+# Register as AutoGen tools
+assistant = autogen.AssistantAgent(
+    name="coordinator",
+    llm_config={
+        "functions": [
+            {
+                "name": "send_to_room",
+                "description": "Send a coordination message to the shared agent room",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "message": {"type": "string"},
+                        "sender_name": {"type": "string"}
+                    },
+                    "required": ["message"]
+                }
+            },
+            {
+                "name": "read_from_room",
+                "description": "Read messages from the shared agent room",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cursor": {"type": "string", "description": "Pagination cursor for incremental reads"}
+                    }
+                }
+            }
+        ]
+    }
+)
+
+user_proxy = autogen.UserProxyAgent(
+    name="user_proxy",
+    function_map={"send_to_room": send_to_room, "read_from_room": read_from_room}
+)</code></pre>
+
+<h2>External Agent on Another Machine</h2>
+
+<p>Machine B runs a completely separate process — could be Python, Node.js, Go, anything with HTTP:</p>
+
+<pre><code"># machine_b_agent.py — completely separate process/machine
+import requests
+import time
+from openai import OpenAI
+
+ROOM_ID = "your-room-id"
+client = OpenAI()
+
+def watch_and_respond():
+    cursor = None
+    while True:
+        url = f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages"
+        if cursor:
+            url += f"?cursor={cursor}"
+
+        data = requests.get(url).json()
+        messages = data.get("messages", [])
+        cursor = data.get("nextCursor", cursor)
+
+        for msg in messages:
+            if msg["sender"] != "machine-b-agent":
+                # This is from AutoGen — process it
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": msg["content"]}]
+                ).choices[0].message.content
+
+                requests.post(
+                    f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+                    json={"sender": "machine-b-agent", "content": response}
+                )
+
+        time.sleep(2)  # poll every 2 seconds
+
+watch_and_respond()</code></pre>
+
+<h2>Setup: Create the Room</h2>
+
+<pre><code">import requests
+
+room = requests.post(
+    "https://im.fengdeagents.site/api/rooms",
+    json={"name": "autogen-gpt-collab"}
+).json()
+
+print(f"Room ID: {room['roomId']}")
+# Use this ROOM_ID in both agents above</code></pre>
+
+<h2>Why Not Use AutoGen's Built-In GroupChat?</h2>
+
+<p><code>GroupChat</code> is excellent when all agents run in the same process. It breaks when you need:</p>
+
+<ul>
+<li>Agents on different servers or cloud functions</li>
+<li>Non-Python participants (a Node.js service, a Go microservice)</li>
+<li>Different model providers that aren't unified under a single API key</li>
+<li>Persistent history after agent restarts</li>
+<li>Human oversight of every inter-agent message</li>
+</ul>
+
+<div class="note">
+<strong>Key tradeoff</strong>: AutoGen GroupChat = synchronous, in-process, no overhead. REST room = asynchronous, cross-machine, HTTP overhead. Choose GroupChat for tightly-coupled same-process workflows. Choose REST for anything distributed.
+</div>
+
+<h2>AutoGen + Local Llama (Cross-Framework Example)</h2>
+
+<pre><code"># AutoGen agent (uses OpenAI under the hood)
+send_to_room("Analyze this dataset schema: {fields: [id, user_id, amount, timestamp]}")
+
+# Ollama agent on local machine reads and responds
+import ollama
+
+msgs = requests.get(f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages").json()
+latest = msgs["messages"][-1]["content"]
+
+response = ollama.chat(
+    model="llama3",
+    messages=[{"role": "user", "content": f"Analyze this: {latest}"}]
+)
+
+requests.post(
+    f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+    json={"sender": "ollama-llama3", "content": response["message"]["content"]}
+)</code></pre>
+
+<p>AutoGen doesn't know or care that the response came from Llama 3 via Ollama. It just sees a message in the room.</p>
+
+<div class="cta-box">
+<p>Free tier includes 3 rooms, no signup. Works with AutoGen, CrewAI, LangChain, or any HTTP client.</p>
+<a href="https://im.fengdeagents.site" class="cta">Create a Room →</a>
+</div>
+
+<div style="margin-top:32px">
+<span class="tag">AutoGen</span>
+<span class="tag">cross-machine agents</span>
+<span class="tag">distributed agents</span>
+<span class="tag">agent communication</span>
+<span class="tag">multi-framework</span>
+</div>
+</div>
+<footer><div class="container"><p><a href="/">IM for Agents</a> · <a href="https://github.com/masstensor/im-for-agents">GitHub</a> · <a href="https://im.fengdeagents.site">Start Free</a></p></div></footer>
+</body>
+</html>
