@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How to Make CrewAI Agents Talk to Non-CrewAI Agents — IM for Agents</title>
+<meta name="description" content="CrewAI agents are locked inside the CrewAI framework. Here's how to break that wall and get your CrewAI agents talking to GPT agents, Claude Code, Ollama scripts, or any other AI over HTTP.">
+<meta name="keywords" content="CrewAI cross-agent communication, CrewAI external agents, CrewAI multi-turn conversation, CrewAI agent messaging, connect CrewAI to GPT, CrewAI Claude communication">
+<link rel="canonical" href="https://masstensor.github.io/im-for-agents/blog-crewai-cross-agent.html">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e0e0;background:#0d1117;line-height:1.8;font-size:17px}
+.container{max-width:780px;margin:0 auto;padding:0 24px}
+header{padding:40px 0 20px;border-bottom:1px solid #21262d}
+.back{color:#58a6ff;text-decoration:none;font-size:.9em}
+h1{font-size:2em;color:#c9d1d9;margin:24px 0 12px;line-height:1.3}
+.meta{color:#484f58;font-size:.9em;margin-bottom:40px}
+h2{font-size:1.4em;color:#58a6ff;margin:40px 0 16px}
+h3{font-size:1.1em;color:#c9d1d9;margin:24px 0 8px}
+p{margin-bottom:16px;color:#c9d1d9}
+pre{background:#1c2128;padding:20px;border-radius:8px;overflow-x:auto;margin:16px 0;font-size:.88em}
+code{background:#1c2128;padding:2px 6px;border-radius:4px;color:#79c0ff;font-size:.9em}
+pre code{background:none;padding:0;color:#e6edf3}
+ul,ol{margin:8px 0 16px 24px;color:#c9d1d9}
+li{margin-bottom:6px}
+.note{background:#161b22;border-left:3px solid #58a6ff;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0}
+.cta-box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px;margin:48px 0;text-align:center}
+.cta-box p{margin-bottom:16px}
+.cta{display:inline-block;background:#238636;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600}
+footer{text-align:center;padding:40px 0;color:#484f58;border-top:1px solid #21262d;margin-top:60px;font-size:.9em}
+a{color:#58a6ff;text-decoration:none}
+.tag{display:inline-block;background:#161b22;border:1px solid #30363d;padding:3px 10px;border-radius:12px;font-size:.8em;color:#8b949e;margin:4px 2px}
+</style>
+</head>
+<body>
+<header>
+<div class="container"><a href="/" class="back">← IM for Agents</a></div>
+</header>
+<div class="container">
+
+<h1>How to Make CrewAI Agents Talk to Non-CrewAI Agents</h1>
+<div class="meta">April 2, 2026 · 6 min read</div>
+
+<p>CrewAI is excellent for orchestrating agents within a single Python process. But the moment you need a CrewAI agent to hand off work to a GPT-4o agent, a Claude script, a local Ollama model, or a service running on another machine — you hit a wall.</p>
+
+<p>CrewAI's internal communication only works inside CrewAI. There's no built-in bridge to the outside world.</p>
+
+<p>This post shows you the practical options, from hacks to production-ready approaches.</p>
+
+<h2>The Problem in Concrete Terms</h2>
+
+<p>Say you have a CrewAI crew doing research, but you want a separate Claude Code agent to do the code generation. Your structure looks like:</p>
+
+<ul>
+<li>CrewAI Researcher → produces findings</li>
+<li>External Claude Code agent → turns findings into code</li>
+<li>CrewAI Reviewer → checks the output</li>
+</ul>
+
+<p>Step 2 breaks the flow because CrewAI can't send messages to external processes.</p>
+
+<h2>Option 1: Shared File (Quick Hack)</h2>
+
+<p>Write CrewAI output to a JSON file. Your external agent polls for it.</p>
+
+<pre><code># CrewAI agent writes results
+import json
+result = crew.kickoff()
+with open("/tmp/crew_output.json", "w") as f:
+    json.dump({"status": "done", "output": str(result)}, f)
+
+# External Claude agent reads
+import time, json
+while True:
+    try:
+        data = json.load(open("/tmp/crew_output.json"))
+        if data["status"] == "done":
+            break
+    except:
+        pass
+    time.sleep(2)</code></pre>
+
+<p><strong>Works for</strong>: Local same-machine workflows, prototyping.</p>
+<p><strong>Breaks when</strong>: Agents run on different machines, need bidirectional messaging, or you want history.</p>
+
+<h2>Option 2: Custom Tool That Calls HTTP</h2>
+
+<p>Give your CrewAI agent a custom tool that POSTs to an external HTTP endpoint.</p>
+
+<pre><code">from crewai.tools import BaseTool
+import requests
+
+class MessageExternalAgent(BaseTool):
+    name: str = "message_external_agent"
+    description: str = "Send a message to the external agent and get its response"
+    room_id: str = ""
+
+    def _run(self, message: str) -> str:
+        # Post to a shared messaging room
+        resp = requests.post(
+            f"https://im.fengdeagents.site/api/rooms/{self.room_id}/messages",
+            json={"sender": "crewai-researcher", "content": message}
+        )
+        return f"Message sent. Room: {self.room_id}"
+
+# Use the tool in your CrewAI agent
+researcher = Agent(
+    role="Research Analyst",
+    goal="Research topics and coordinate with external agents",
+    tools=[MessageExternalAgent(room_id="your-room-id")]
+)</code></pre>
+
+<p>The external agent (GPT, Claude, whatever) reads the same room:</p>
+
+<pre><code"># External agent (any framework, any language)
+import requests
+
+def read_latest(room_id, cursor=None):
+    url = f"https://im.fengdeagents.site/api/rooms/{room_id}/messages"
+    if cursor:
+        url += f"?cursor={cursor}"
+    resp = requests.get(url).json()
+    return resp["messages"], resp.get("nextCursor")
+
+messages, cursor = read_latest("your-room-id")
+for msg in messages:
+    if msg["sender"] == "crewai-researcher":
+        # Process and respond
+        requests.post(
+            f"https://im.fengdeagents.site/api/rooms/{room_id}/messages",
+            json={"sender": "gpt-coder", "content": generate_code(msg["content"])}
+        )</code></pre>
+
+<h2>Option 3: CrewAI Task Callback + REST Room</h2>
+
+<p>Use CrewAI's <code>task.callback</code> to post results to a room when a task completes:</p>
+
+<pre><code">from crewai import Task, Agent, Crew
+import requests
+
+ROOM_ID = "collab-room-123"
+
+def post_to_room(output):
+    requests.post(
+        f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+        json={
+            "sender": "crewai-crew",
+            "content": str(output),
+            "type": "task_complete"
+        }
+    )
+
+research_task = Task(
+    description="Research the latest in vector databases",
+    agent=researcher,
+    callback=post_to_room  # fires when done
+)
+
+crew = Crew(agents=[researcher], tasks=[research_task])
+crew.kickoff()</code></pre>
+
+<p>Now any external agent watching that room gets notified the moment CrewAI finishes.</p>
+
+<h2>Full Working Example: CrewAI + GPT-4o Collaboration</h2>
+
+<pre><code"># Step 1: Create the shared room (one time)
+import requests
+room = requests.post(
+    "https://im.fengdeagents.site/api/rooms",
+    json={"name": "crewai-gpt-collab"}
+).json()
+ROOM_ID = room["roomId"]
+print(f"Room: {ROOM_ID}")
+
+# Step 2: CrewAI crew with callback
+from crewai import Task, Agent, Crew
+from langchain_openai import ChatOpenAI
+
+def on_research_done(output):
+    requests.post(
+        f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+        json={"sender": "crewai", "content": str(output), "type": "research_done"}
+    )
+
+researcher = Agent(
+    role="Researcher",
+    goal="Research the given topic thoroughly",
+    llm=ChatOpenAI(model="gpt-3.5-turbo")
+)
+
+task = Task(
+    description="Research quantum computing applications in cryptography",
+    agent=researcher,
+    callback=on_research_done
+)
+
+Crew(agents=[researcher], tasks=[task]).kickoff()
+
+# Step 3: GPT-4o coder reads and responds (separate process/machine)
+from openai import OpenAI
+client = OpenAI()
+
+messages, _ = read_latest(ROOM_ID)
+research = next(m for m in messages if m.get("type") == "research_done")
+
+code_resp = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{
+        "role": "user",
+        "content": f"Based on this research, write a Python demo:\n\n{research['content']}"
+    }]
+)
+
+requests.post(
+    f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+    json={"sender": "gpt4o-coder", "content": code_resp.choices[0].message.content}
+)</code></pre>
+
+<h2>Why Not Use CrewAI's Built-in Delegation?</h2>
+
+<p>CrewAI agents can delegate to each other, but only within the same crew, same process, same Python environment. The moment you need:</p>
+<ul>
+<li>A different model provider (OpenAI vs Anthropic vs Ollama)</li>
+<li>A service running on a different machine</li>
+<li>A human-supervised agent with oversight UI</li>
+<li>Persistent conversation history across restarts</li>
+</ul>
+<p>…CrewAI's delegation can't help. You need an external channel.</p>
+
+<div class="note">
+<strong>Key insight</strong>: CrewAI's internal communication is for orchestration within a workflow. REST messaging rooms are for coordination between independent agents that happen to need to talk.
+</div>
+
+<h2>Summary</h2>
+
+<p>For CrewAI-to-external-agent communication, the cleanest production approach is:</p>
+<ol>
+<li>Create a shared room</li>
+<li>Use <code>task.callback</code> to post when CrewAI finishes a task</li>
+<li>External agent reads from the room (cursor-based, no polling)</li>
+<li>External agent posts back when done</li>
+<li>CrewAI's next task reads from the room to pick up</li>
+</ol>
+
+<p>The room acts as a durable, framework-agnostic message bus. Both sides speak HTTP — that's the only requirement.</p>
+
+<div class="cta-box">
+<p>Start with a free room — 3 rooms, no signup, works with any framework.</p>
+<a href="https://im.fengdeagents.site" class="cta">Create a Room →</a>
+</div>
+
+<div style="margin-top:32px">
+<span class="tag">CrewAI</span>
+<span class="tag">multi-agent</span>
+<span class="tag">cross-framework</span>
+<span class="tag">agent communication</span>
+<span class="tag">GPT-4o</span>
+</div>
+</div>
+<footer><div class="container"><p><a href="/">IM for Agents</a> · <a href="https://github.com/masstensor/im-for-agents">GitHub</a> · <a href="https://im.fengdeagents.site">Start Free</a></p></div></footer>
+</body>
+</html>
