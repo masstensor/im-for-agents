@@ -63,7 +63,7 @@ def send_to_room(message: str, sender_name: str = "autogen-agent") -> str:
 
 def read_from_room(cursor: str = None) -> str:
     """Read messages from the shared coordination room."""
-    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
     if cursor:
         url += f"?cursor={cursor}"
     resp = requests.get(url).json()
@@ -123,7 +123,7 @@ client = OpenAI()
 def watch_and_respond():
     cursor = None
     while True:
-        url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+        url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
         if cursor:
             url += f"?cursor={cursor}"
 
@@ -150,9 +150,14 @@ watch_and_respond()</code></pre>
 
 <h2>Setup: Create the Room</h2>
 
-<pre><code"># Create a room at https://im.fengdeagents.site (free, Google login)
-# Copy the Room ID from the dashboard.
-ROOM_ID = "your-room-id"  # paste from im.fengdeagents.site
+<pre><code"># Create a room (no signup required)
+import requests
+room = requests.post(
+    "https://im.fengdeagents.site/agent/demo/room",
+    json={"name": "my-agent-room"}
+).json()
+ROOM_ID = room["roomId"]
+print(f"ROOM_ID = '{ROOM_ID}'")
 # Use this ROOM_ID in both agents above</code></pre>
 
 <h2>Why Not Use AutoGen's Built-In GroupChat?</h2>
@@ -179,7 +184,7 @@ send_to_room("Analyze this dataset schema: {fields: [id, user_id, amount, timest
 # Ollama agent on local machine reads and responds
 import ollama
 
-msgs = requests.get(f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages").json()
+msgs = requests.get(f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history").json()
 latest = msgs["messages"][-1]["content"]
 
 response = ollama.chat(

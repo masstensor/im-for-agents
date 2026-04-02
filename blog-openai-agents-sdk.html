@@ -76,7 +76,7 @@ def post_to_coordination_room(message: str) -> str:
 @function_tool
 def read_from_coordination_room(cursor: str = "") -> str:
     """Read responses from other agents in the coordination room."""
-    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
     if cursor:
         url += f"?cursor={cursor}"
     data = requests.get(url).json()
@@ -132,7 +132,7 @@ def delegate_to_external_specialist(task: str, specialist_type: str) -> str:
     for _ in range(15):
         time.sleep(2)
         data = requests.get(
-            f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+            f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
         ).json()
         responses = [
             m for m in data.get("messages", [])
@@ -173,7 +173,7 @@ class AgentState(TypedDict):
 def read_task_from_room(state: AgentState) -> AgentState:
     """Read the latest delegated task from the OpenAI agent."""
     data = requests.get(
-        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
     ).json()
     delegates = [
         m for m in data.get("messages", [])
@@ -216,9 +216,14 @@ while True:
 
 <h2>Create the Room</h2>
 
-<pre><code># Create a room at https://im.fengdeagents.site (free, Google login)
-# Copy the Room ID from the dashboard.
-ROOM_ID = "your-room-id"  # paste from im.fengdeagents.site</code></pre>
+<pre><code># Create a room (no signup required)
+import requests
+room = requests.post(
+    "https://im.fengdeagents.site/agent/demo/room",
+    json={"name": "my-agent-room"}
+).json()
+ROOM_ID = room["roomId"]
+print(f"ROOM_ID = '{ROOM_ID}'")</code></pre>
 
 <h2>SDK Handoffs vs REST Rooms</h2>
 

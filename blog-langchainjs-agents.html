@@ -85,7 +85,7 @@ const readFromRoom = new DynamicTool({
   func: async (cursor: string = ""): Promise<string> => {
     const url = cursor
       ? `https://im.fengdeagents.site/agent/rooms/${ROOM_ID}/messages?cursor=${cursor}`
-      : `https://im.fengdeagents.site/agent/rooms/${ROOM_ID}/messages`;
+      : `https://im.fengdeagents.site/agent/rooms/${ROOM_ID}/history`;
     const data = await fetch(url).then((r) => r.json()) as any;
     const messages = data.messages ?? [];
     const external = messages.filter((m: any) => m.sender !== "langchainjs-agent");
@@ -154,7 +154,7 @@ async function waitForResponseNode(state: AgentState): Promise<Partial<AgentStat
   while (Date.now() < deadline) {
     const url = cursor
       ? `https://im.fengdeagents.site/agent/rooms/${ROOM_ID}/messages?cursor=${cursor}`
-      : `https://im.fengdeagents.site/agent/rooms/${ROOM_ID}/messages`;
+      : `https://im.fengdeagents.site/agent/rooms/${ROOM_ID}/history`;
 
     const data = await fetch(url).then((r) => r.json()) as any;
     const external = (data.messages ?? []).filter(
@@ -206,7 +206,7 @@ cursor = None
 print(f"Python agent listening on room {ROOM_ID}...")
 
 while True:
-    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
     if cursor:
         url += f"?cursor={cursor}"
 

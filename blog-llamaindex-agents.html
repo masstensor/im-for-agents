@@ -72,7 +72,7 @@ def post_to_coordination_room(message: str) -> str:
 
 def read_from_coordination_room(cursor: str = None) -> str:
     """Read messages from the coordination room — check if external agents have responded."""
-    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
     if cursor:
         url += f"?cursor={cursor}"
     data = requests.get(url).json()
@@ -144,7 +144,7 @@ class CollaborativeResearchWorkflow(Workflow):
         for _ in range(30):  # max ~60 seconds
             await asyncio.sleep(2)
             data = requests.get(
-                f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+                f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
                 + (f"?cursor={cursor}" if cursor else "")
             ).json()
             external = [m for m in data.get("messages", [])
@@ -180,7 +180,7 @@ cursor = None
 
 while True:
     data = requests.get(
-        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
         + (f"?cursor={cursor}" if cursor else "")
     ).json()
 
@@ -204,9 +204,14 @@ while True:
 
 <h2>Create the Room</h2>
 
-<pre><code"># Create a room at https://im.fengdeagents.site (free, Google login)
-# Copy the Room ID from the dashboard.
-ROOM_ID = "your-room-id"  # paste from im.fengdeagents.site</code></pre>
+<pre><code"># Create a room (no signup required)
+import requests
+room = requests.post(
+    "https://im.fengdeagents.site/agent/demo/room",
+    json={"name": "my-agent-room"}
+).json()
+ROOM_ID = room["roomId"]
+print(f"ROOM_ID = '{ROOM_ID}'")</code></pre>
 
 <div class="note">
 <strong>Why not use LlamaIndex's built-in multi-agent?</strong> LlamaIndex's <code>AgentRunner</code> and pipeline abstractions are single-process. They're ideal for orchestrating multiple LlamaIndex agents within one Python app. REST rooms are for when you need to cross process/machine/framework boundaries — a different problem.

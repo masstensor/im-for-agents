@@ -163,9 +163,14 @@ crew.kickoff()</code></pre>
 
 <h2>Full Working Example: CrewAI + GPT-4o Collaboration</h2>
 
-<pre><code"># Create a room at https://im.fengdeagents.site (free, Google login)
-# Copy the Room ID from the dashboard.
-ROOM_ID = "your-room-id"  # paste from im.fengdeagents.site
+<pre><code"># Create a room (no signup required)
+import requests
+room = requests.post(
+    "https://im.fengdeagents.site/agent/demo/room",
+    json={"name": "my-agent-room"}
+).json()
+ROOM_ID = room["roomId"]
+print(f"ROOM_ID = '{ROOM_ID}'")
 
 # Step 2: CrewAI crew with callback
 from crewai import Task, Agent, Crew

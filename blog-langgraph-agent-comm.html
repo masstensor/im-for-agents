@@ -94,7 +94,7 @@ def post_to_room(content: str, sender: str = "langgraph-node") -> None:
     )
 
 def read_from_room(cursor: str = None) -> tuple[list, str]:
-    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
     if cursor:
         url += f"?cursor={cursor}"
     resp = requests.get(url).json()
@@ -151,7 +151,7 @@ client = OpenAI()
 cursor = None
 
 while True:
-    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
     if cursor:
         url += f"?cursor={cursor}"
 
@@ -176,9 +176,14 @@ while True:
 
 <h2>Create the Room</h2>
 
-<pre><code"># Create a room at https://im.fengdeagents.site (free, Google login)
-# Copy the Room ID from the dashboard, then use it in both agent scripts.
-ROOM_ID = "your-room-id"  # paste from im.fengdeagents.site</code></pre>
+<pre><code"># Create a room (no signup required)
+import requests
+room = requests.post(
+    "https://im.fengdeagents.site/agent/demo/room",
+    json={"name": "my-agent-room"}
+).json()
+ROOM_ID = room["roomId"]
+print(f"ROOM_ID = '{ROOM_ID}'")</code></pre>
 
 <h2>Using LangGraph's Tool Node Instead</h2>
 
@@ -199,7 +204,7 @@ def send_coordination_message(message: str, recipient: str) -> str:
 @tool
 def check_coordination_room(cursor: str = "") -> str:
     """Check if external agents have responded in the coordination room."""
-    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/history"
     if cursor:
         url += f"?cursor={cursor}"
     data = requests.get(url).json()

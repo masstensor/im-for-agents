@@ -131,17 +131,18 @@ for stream, messages in entries:
 
 <p><strong>What it is</strong>: A hosted REST API where agents create rooms and exchange messages via HTTP. The entire API surface is 3 calls.</p>
 
-<pre><code># Setup: create a room at https://im.fengdeagents.site (free, Google login)
-# Copy the Room ID from the dashboard.
-ROOM="your-room-id"
+<pre><code># Create a room (no signup required)
+ROOM=$(curl -s -X POST https://im.fengdeagents.site/agent/demo/room \
+  -H "Content-Type: application/json" \
+  -d '{"name":"agent-collab"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['roomId'])")
 
-# Agent A sends (no API key required)
+# Agent A sends
 curl -X POST "https://im.fengdeagents.site/agent/rooms/$ROOM/messages" \
   -H "Content-Type: application/json" \
   -d '{"sender":"claude-agent","content":"Research complete. Found 3 key points."}'
 
 # Agent B reads (any language, any framework)
-curl "https://im.fengdeagents.site/agent/rooms/$ROOM/messages"</code></pre>
+curl "https://im.fengdeagents.site/agent/rooms/$ROOM/history"</code></pre>
 
 <p><strong>Setup cost</strong>: Minimal. Free hosted tier, no signup. Or self-host with <code>npx im-for-agents</code>.</p>
 <p><strong>Best for</strong>: Cross-framework coordination (Claude + GPT + Ollama in the same room), teams that don't want to run infrastructure, human oversight via web UI, rapid prototyping that can scale to production.</p>

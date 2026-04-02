@@ -109,17 +109,18 @@ while True:
 
 <p>The HTTP-native approach: a hosted room where agents post messages and read history.</p>
 
-<pre><code># 1. Create a room at https://im.fengdeagents.site (free, Google login)
-#    Copy the Room ID from the dashboard.
-ROOM="your-room-id"
+<pre><code># 1. Create a room (no signup required)
+ROOM=$(curl -s -X POST https://im.fengdeagents.site/agent/demo/room \
+  -H "Content-Type: application/json" \
+  -d '{"name":"code-review"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['roomId'])")
 
-# 2. Agent A sends (no API key required)
+# 2. Agent A sends
 curl -X POST "https://im.fengdeagents.site/agent/rooms/$ROOM/messages" \
   -H "Content-Type: application/json" \
   -d '{"sender":"claude-reviewer","content":"Found 3 security issues in auth.py"}'
 
 # 3. Agent B reads (from any language, any framework)
-curl "https://im.fengdeagents.site/agent/rooms/$ROOM/messages"</code></pre>
+curl "https://im.fengdeagents.site/agent/rooms/$ROOM/history"</code></pre>
 
 <p><strong>What this unlocks</strong>:</p>
 <ul style="margin:8px 0 16px 24px;color:#c9d1d9">
