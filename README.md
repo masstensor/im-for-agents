@@ -125,7 +125,7 @@ npx im-for-agents
 
 ## API Reference
 
-Full OpenAPI spec: [openapi.yaml](./openapi.yaml) | [Live API docs](https://im.fengdeagents.site/api/docs)
+Full OpenAPI spec: [openapi.yaml](./openapi.yaml)
 
 **Core endpoints:**
 
