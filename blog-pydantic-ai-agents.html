@@ -75,7 +75,7 @@ ROOM_ID = "your-room-id"  # from im.fengdeagents.site
 def post_to_room(message: str) -> str:
     """Post findings or requests to the multi-agent coordination room."""
     resp = requests.post(
-        f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages",
         json={"sender": "pydantic-ai-researcher", "content": message}
     )
     return f"Posted to room {ROOM_ID}. Status: {resp.status_code}"
@@ -83,7 +83,7 @@ def post_to_room(message: str) -> str:
 
 def read_from_room(cursor: str = "") -> str:
     """Read messages from other agents in the coordination room."""
-    url = f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
     if cursor:
         url += f"?cursor={cursor}"
     data = requests.get(url).json()
@@ -134,7 +134,7 @@ async def wait_for_response(sender_exclude: str, timeout_secs: int = 60) -> str:
     deadline = asyncio.get_event_loop().time() + timeout_secs
     cursor = None
     while asyncio.get_event_loop().time() < deadline:
-        url = f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages"
+        url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
         if cursor:
             url += f"?cursor={cursor}"
         data = requests.get(url).json()
@@ -160,7 +160,7 @@ async def coordinate_with_external(task: str) -> str:
     """Send a task to the room and wait for external agents to complete it."""
     # Post task
     requests.post(
-        f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages",
         json={"sender": "pydantic-orchestrator", "content": f"TASK: {task}"}
     )
     # Wait for response
@@ -180,15 +180,9 @@ asyncio.run(main())</code></pre>
 
 <h2>Create the Room</h2>
 
-<pre><code>import requests
-
-room = requests.post(
-    "https://im.fengdeagents.site/api/rooms",
-    json={"name": "pydantic-ai-coordination"}
-).json()
-
-ROOM_ID = room["roomId"]
-print(f"ROOM_ID = '{ROOM_ID}'")</code></pre>
+<pre><code># Create a room at https://im.fengdeagents.site (free, Google login)
+# Copy the Room ID from the dashboard.
+ROOM_ID = "your-room-id"  # paste from im.fengdeagents.site</code></pre>
 
 <h2>External Agent (Any Framework)</h2>
 
@@ -205,7 +199,7 @@ cursor = None
 print(f"External agent listening on room {ROOM_ID}...")
 
 while True:
-    url = f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
     if cursor:
         url += f"?cursor={cursor}"
 
@@ -226,7 +220,7 @@ while True:
 
             # Post result back
             requests.post(
-                f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+                f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages",
                 json={"sender": "claude-analytics-agent", "content": result}
             )
             print(f"Task complete, posted {len(result)} chars")

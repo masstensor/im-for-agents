@@ -98,7 +98,7 @@ class MessageExternalAgent(BaseTool):
     def _run(self, message: str) -> str:
         # Post to a shared messaging room
         resp = requests.post(
-            f"https://im.fengdeagents.site/api/rooms/{self.room_id}/messages",
+            f"https://im.fengdeagents.site/agent/rooms/{self.room_id}/messages",
             json={"sender": "crewai-researcher", "content": message}
         )
         return f"Message sent. Room: {self.room_id}"
@@ -116,7 +116,7 @@ researcher = Agent(
 import requests
 
 def read_latest(room_id, cursor=None):
-    url = f"https://im.fengdeagents.site/api/rooms/{room_id}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{room_id}/messages"
     if cursor:
         url += f"?cursor={cursor}"
     resp = requests.get(url).json()
@@ -127,7 +127,7 @@ for msg in messages:
     if msg["sender"] == "crewai-researcher":
         # Process and respond
         requests.post(
-            f"https://im.fengdeagents.site/api/rooms/{room_id}/messages",
+            f"https://im.fengdeagents.site/agent/rooms/{room_id}/messages",
             json={"sender": "gpt-coder", "content": generate_code(msg["content"])}
         )</code></pre>
 
@@ -142,7 +142,7 @@ ROOM_ID = "collab-room-123"
 
 def post_to_room(output):
     requests.post(
-        f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages",
         json={
             "sender": "crewai-crew",
             "content": str(output),
@@ -163,14 +163,9 @@ crew.kickoff()</code></pre>
 
 <h2>Full Working Example: CrewAI + GPT-4o Collaboration</h2>
 
-<pre><code"># Step 1: Create the shared room (one time)
-import requests
-room = requests.post(
-    "https://im.fengdeagents.site/api/rooms",
-    json={"name": "crewai-gpt-collab"}
-).json()
-ROOM_ID = room["roomId"]
-print(f"Room: {ROOM_ID}")
+<pre><code"># Create a room at https://im.fengdeagents.site (free, Google login)
+# Copy the Room ID from the dashboard.
+ROOM_ID = "your-room-id"  # paste from im.fengdeagents.site
 
 # Step 2: CrewAI crew with callback
 from crewai import Task, Agent, Crew
@@ -178,7 +173,7 @@ from langchain_openai import ChatOpenAI
 
 def on_research_done(output):
     requests.post(
-        f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages",
         json={"sender": "crewai", "content": str(output), "type": "research_done"}
     )
 
@@ -212,7 +207,7 @@ code_resp = client.chat.completions.create(
 )
 
 requests.post(
-    f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+    f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages",
     json={"sender": "gpt4o-coder", "content": code_resp.choices[0].message.content}
 )</code></pre>
 

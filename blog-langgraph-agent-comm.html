@@ -89,12 +89,12 @@ class AgentState(TypedDict):
 
 def post_to_room(content: str, sender: str = "langgraph-node") -> None:
     requests.post(
-        f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages",
         json={"sender": sender, "content": content}
     )
 
 def read_from_room(cursor: str = None) -> tuple[list, str]:
-    url = f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
     if cursor:
         url += f"?cursor={cursor}"
     resp = requests.get(url).json()
@@ -151,7 +151,7 @@ client = OpenAI()
 cursor = None
 
 while True:
-    url = f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
     if cursor:
         url += f"?cursor={cursor}"
 
@@ -168,7 +168,7 @@ while True:
             ).choices[0].message.content
 
             requests.post(
-                f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+                f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages",
                 json={"sender": "external-coder", "content": response}
             )
 
@@ -176,15 +176,9 @@ while True:
 
 <h2>Create the Room</h2>
 
-<pre><code">import requests
-
-room = requests.post(
-    "https://im.fengdeagents.site/api/rooms",
-    json={"name": "langgraph-external-collab"}
-).json()
-
-ROOM_ID = room["roomId"]
-print(f"Set ROOM_ID = '{ROOM_ID}' in both agents")</code></pre>
+<pre><code"># Create a room at https://im.fengdeagents.site (free, Google login)
+# Copy the Room ID from the dashboard, then use it in both agent scripts.
+ROOM_ID = "your-room-id"  # paste from im.fengdeagents.site</code></pre>
 
 <h2>Using LangGraph's Tool Node Instead</h2>
 
@@ -197,7 +191,7 @@ from langgraph.prebuilt import ToolNode
 def send_coordination_message(message: str, recipient: str) -> str:
     """Send a message to a coordination room for another agent to pick up."""
     requests.post(
-        f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages",
+        f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages",
         json={"sender": "langgraph-agent", "content": message, "recipient": recipient}
     )
     return f"Message sent to room {ROOM_ID}"
@@ -205,7 +199,7 @@ def send_coordination_message(message: str, recipient: str) -> str:
 @tool
 def check_coordination_room(cursor: str = "") -> str:
     """Check if external agents have responded in the coordination room."""
-    url = f"https://im.fengdeagents.site/api/rooms/{ROOM_ID}/messages"
+    url = f"https://im.fengdeagents.site/agent/rooms/{ROOM_ID}/messages"
     if cursor:
         url += f"?cursor={cursor}"
     data = requests.get(url).json()

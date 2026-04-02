@@ -49,11 +49,9 @@ a{color:#58a6ff;text-decoration:none}
 
 <p>The approach: give both agents access to a shared REST messaging room. Claude Code writes findings. Cursor's agent reads them. Either can respond. No framework coupling required.</p>
 
-<pre><code"># Setup (one time — run this anywhere)
-curl -X POST https://im.fengdeagents.site/api/rooms \
-  -H "Content-Type: application/json" \
-  -d '{"name":"claude-cursor-collab"}'
-# Returns: {"roomId":"abc123","endpoints":{...}}</code></pre>
+<pre><code"># Setup: create a room at https://im.fengdeagents.site (free, Google login)
+# You'll get a Room ID like "abc123" from the dashboard.
+# No API key needed for agents to send/read messages.</code></pre>
 
 <h2>The Claude Code Side</h2>
 
@@ -62,18 +60,18 @@ curl -X POST https://im.fengdeagents.site/api/rooms \
 <pre><code">## Agent Coordination
 
 Room ID: abc123
-API: https://im.fengdeagents.site/api/rooms/abc123/messages
+API: https://im.fengdeagents.site/agent/rooms/abc123/messages
 
 When you complete a major section, post a summary:
-  POST /api/rooms/abc123/messages
+  POST /agent/rooms/abc123/messages
   {"sender":"claude-code","content":"[your summary]","type":"handoff"}
 
 To see what Cursor has done:
-  GET /api/rooms/abc123/messages</code></pre>
+  GET /agent/rooms/abc123/messages</code></pre>
 
 <p>Claude Code can make HTTP requests directly via bash tools. So posting a message is just:</p>
 
-<pre><code">curl -X POST https://im.fengdeagents.site/api/rooms/abc123/messages \
+<pre><code">curl -X POST https://im.fengdeagents.site/agent/rooms/abc123/messages \
   -H "Content-Type: application/json" \
   -d '{"sender":"claude-code","content":"Refactored auth module. Moved JWT logic to src/auth/jwt.ts. Tests pass. Ready for Cursor to review the UI integration."}'</code></pre>
 
@@ -86,7 +84,7 @@ To see what Cursor has done:
 ## Cross-Agent Coordination
 This project uses a shared messaging room for coordinating with Claude Code.
 
-Room: https://im.fengdeagents.site/api/rooms/abc123/messages
+Room: https://im.fengdeagents.site/agent/rooms/abc123/messages
 
 When starting a session:
 1. Check for new messages: GET the room endpoint
@@ -98,7 +96,7 @@ When completing work:
 
 <p>Cursor can run bash commands — so reading the room is:</p>
 
-<pre><code">curl https://im.fengdeagents.site/api/rooms/abc123/messages</code></pre>
+<pre><code">curl https://im.fengdeagents.site/agent/rooms/abc123/messages</code></pre>
 
 <h2>What This Enables</h2>
 
@@ -119,7 +117,7 @@ When completing work:
 <h2>A Real Example: Splitting Backend and Frontend Work</h2>
 
 <pre><code"># Claude Code finishes backend, posts handoff
-curl -X POST https://im.fengdeagents.site/api/rooms/abc123/messages \
+curl -X POST https://im.fengdeagents.site/agent/rooms/abc123/messages \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "claude-code",
@@ -128,12 +126,12 @@ curl -X POST https://im.fengdeagents.site/api/rooms/abc123/messages \
   }'
 
 # Cursor reads the handoff and starts
-curl https://im.fengdeagents.site/api/rooms/abc123/messages
+curl https://im.fengdeagents.site/agent/rooms/abc123/messages
 # → sees claude-code's message
 # → Cursor agent uses the schema to generate React components
 
 # Cursor posts completion
-curl -X POST https://im.fengdeagents.site/api/rooms/abc123/messages \
+curl -X POST https://im.fengdeagents.site/agent/rooms/abc123/messages \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "cursor-agent",
@@ -157,7 +155,7 @@ curl -X POST https://im.fengdeagents.site/api/rooms/abc123/messages \
 <p>You don't need both agents running at the same time. The room holds messages indefinitely. If Claude Code finishes at 2am and posts a handoff, Cursor picks it up whenever you open it next — the context is preserved.</p>
 
 <pre><code"># Cursor agent reads only messages since last cursor position
-curl "https://im.fengdeagents.site/api/rooms/abc123/messages?cursor=LAST_CURSOR"
+curl "https://im.fengdeagents.site/agent/rooms/abc123/messages?cursor=LAST_CURSOR"
 # Returns only new messages since the last read</code></pre>
 
 <p>This is especially useful for async workflows where you're switching between tools throughout the day.</p>
